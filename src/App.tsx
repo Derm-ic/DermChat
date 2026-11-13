@@ -1,9 +1,13 @@
 import React, { useEffect } from 'react'
-import { useColorScheme, NativeModules, StatusBar, SafeAreaView, Platform } from 'react-native'
+import { useColorScheme, NativeModules, StatusBar, SafeAreaView, Platform, View } from 'react-native'
 import Ionicons from 'react-native-vector-icons/Ionicons'
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons'
-import { NavigationContainer, DarkTheme, type ParamListBase } from '@react-navigation/native'
-import { createNativeStackNavigator } from '@react-navigation/native-stack'
+import {
+  NavigationContainer,
+  DarkTheme,
+  useNavigation,
+  type ParamListBase,
+} from '@react-navigation/native'
+import { createNativeStackNavigator, type NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs'
 import ErrorBoundary from 'react-native-error-boundary'
 
@@ -15,46 +19,56 @@ import SettingsContext, { defaultSettings, type Settings } from './context/setti
 import ServersContext, { type Servers } from './context/serversContext'
 import { ColorSchemeContext } from './context/useDarkMode'
 import DisconnectDialog from './components/DisconnectDialog'
+import AccountsBar from './components/AccountsBar'
 import type { ServerConnection } from './minecraft/connection'
 import ChatScreen from './screens/ChatScreen'
 import ServerScreen from './screens/ServerScreen'
 import AccountScreen from './screens/AccountScreen'
 import SettingScreen from './screens/SettingScreen'
+import WebScreen from './screens/WebScreen'
 import globalStyle from './globalStyle'
 
 export interface RootStackParamList extends ParamListBase {
   Home: undefined
+  Accounts: undefined
   Chat: { serverName: string; version: number }
 }
 
 const Stacks = createNativeStackNavigator<RootStackParamList, 'StackNavigator'>()
-const Tabs = createMaterialTopTabNavigator<RootStackParamList>() // createBottomTabNavigator()
+const Tabs = createMaterialTopTabNavigator<RootStackParamList>()
+
+// Server tab = EnderChat's own server list, with an Accounts bar on top.
+const ServersTab = (props: object): React.JSX.Element => {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
+  return (
+    <View style={globalStyle.flexSpacer}>
+      <AccountsBar onPress={() => navigation.navigate('Accounts')} />
+      <ServerScreen {...(props as React.ComponentProps<typeof ServerScreen>)} />
+    </View>
+  )
+}
+
+const ForumsScreen = (): React.JSX.Element => <WebScreen url='https://skyblock.net' />
+const WikiScreen = (): React.JSX.Element => <WebScreen url='https://wiki.skyblock.net' />
 
 const HomeScreen = (): React.JSX.Element => {
-  // type HomeProp = NativeStackNavigationProp<RootStackParamList, 'Home'>; props: { navigation: HomeProp }
-  /* const { connection } = React.useContext(ConnectionContext)
-  React.useEffect(() => {
-    if (connection)
-      navigation.push('Chat', { serverName: connection.options.serverName, version: connection.options.protocolVersion })
-  }, [connection, navigation]) */
-
   return (
     <Tabs.Navigator
       tabBarPosition='bottom'
       screenOptions={({ route }) => ({
         // eslint-disable-next-line react/no-unstable-nested-components
         tabBarIcon: ({ focused, color }) => {
-          let Component = Ionicons
+          const Component = Ionicons
           let iconName = focused ? 'list-circle' : 'list'
           switch (route.name) {
-            case 'Servers':
+            case 'Forums':
+              iconName = focused ? 'chatbubbles' : 'chatbubbles-outline'
+              break
+            case 'Wiki':
+              iconName = focused ? 'book' : 'book-outline'
               break
             case 'Settings':
               iconName = focused ? 'settings' : 'settings-outline'
-              break
-            case 'Accounts':
-              Component = MaterialIcons
-              iconName = 'switch-account'
               break
             default:
               break
@@ -65,10 +79,12 @@ const HomeScreen = (): React.JSX.Element => {
         tabBarActiveTintColor: '#007AFF',
         tabBarInactiveTintColor: '#a0a0a0',
         headerShown: false,
+        swipeEnabled: false, // swiping would fight with scrolling inside the web pages
       })}
     >
-      <Tabs.Screen name='Servers' component={ServerScreen} />
-      <Tabs.Screen name='Accounts' component={AccountScreen} />
+      <Tabs.Screen name='Servers' component={ServersTab} />
+      <Tabs.Screen name='Forums' component={ForumsScreen} />
+      <Tabs.Screen name='Wiki' component={WikiScreen} />
       <Tabs.Screen name='Settings' component={SettingScreen} />
     </Tabs.Navigator>
   )
@@ -132,6 +148,11 @@ const App = (): React.JSX.Element => {
                     }}
                   >
                     <Stacks.Screen name='Home' component={HomeScreen} />
+                    <Stacks.Screen
+                      name='Accounts'
+                      component={AccountScreen}
+                      options={{ headerShown: true, title: 'Accounts' }}
+                    />
                     <Stacks.Screen
                       name='Chat'
                       component={ChatScreen}
