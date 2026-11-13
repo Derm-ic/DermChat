@@ -1,0 +1,27 @@
+name: Build APK
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CONFIG_JSON: ${{ secrets.CONFIG_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - name: Microsoft login settings (config.json from the CONFIG_JSON secret)
+        run: |
+          if [ -n "$CONFIG_JSON" ]; then printf '%s' "$CONFIG_JSON" > config.json; fi
+      - name: Install JS dependencies
+        run: |
+          if [ -f yarn.lock ]; then yarn install --frozen-lockfile
+          elif [ -f package-lock.json ]; then npm ci
+          else npm install; fi
+      - name: Build APK (JS bundled in, so it runs without a dev server)
+        run: cd android && chmod +x gradlew && ./gradlew assembleRelease --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dermchat-apk
+          path: android/app/build/outputs/apk/release/*.apk
